@@ -15,23 +15,18 @@ suppressPackageStartupMessages({
   library(reshape2)
   library(RColorBrewer)
   library(writexl)
+  library(here)
 })
-
-# Change 04 Sept.
-# Furhter change
 
 # Paths
 rm(list = ls())
 
-#Key<- "C:/Users/ap115/OneDrive - SOAS University of London/Adria Rius's files - Research collab. AP-AR/"
-Key <-"C:/Users/ar86/OneDrive - SOAS University of London/Research collab. AP-AR/"
-
-out_dir <- paste(Key,"Output",sep = "" )
-data_dir <- paste(Key,"Data/BACI_HS02_V202501",sep = "" )
-graphs_dir <- paste(Key,"Graphs",sep = "" )
+out_dir <- here("Output")
+data_dir <- here("Data", "BACI_HS02_V202501")
+graphs_dir <- here("Graphs")
 
 # Load data
-aipnet <- read_excel(paste(Key,"Code/edge_list_hs2002_4digit.xlsx",sep = "" ))
+aipnet <- read_excel(here("Code", "edge_list_hs2002_4digit.xlsx"))
 hsnames <- read_excel(paste(Key,"Code/HSCodeandDescription.xlsx",sep = "" ), sheet = "HS02")
 BEC_database <- read_excel(paste(Key,"Data/BEC database.xlsx",sep = "" ))
 
