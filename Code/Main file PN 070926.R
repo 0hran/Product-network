@@ -1,3 +1,4 @@
+
 # =============================================================================
 # FULL SCRIPT: Supply Chain Network Builder with Iterative Node Rewiring
 # =============================================================================
@@ -74,8 +75,6 @@ required_packages <- c("dplyr",
   "readr",
   "patchwork",
   "openxlsx",
-  "ggraph",
-#  "webshot2",
   "RColorBrewer",
   "writexl",
   "here",
@@ -108,7 +107,6 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(stringr)
   library(igraph)
-  library(ggraph)
   library(purrr)
   library(tidyr)
   library(tibble)
@@ -116,7 +114,6 @@ suppressPackageStartupMessages({
   library(purrr)
   library(visNetwork)
   library(htmltools)
-  library(webshot2)
   library(reshape2)
   library(RColorBrewer)
   library(writexl)
@@ -767,10 +764,6 @@ vdf       <- cbind.data.frame(id = vertex_df$name, vertex_df)
 write.xlsx(vdf, rowNames = FALSE,
            file = paste0(Key, "Output/Vertex_Data", product4d, ".xlsx"))
 
-# gnetwork_new is the final object used by all downstream scripts
-saveRDS(gnetwork_new,
-        paste0(Key, "Output/PN_links_", product4d, "Final_version.rds"))
-
 # ── Rewiring log: one sheet per iteration ─────────────────────────────────────
 # Each sheet: from, from_description, to, to_description, rewired_to_root
 # An empty sheet means no rewires were needed in that pass.
@@ -1093,7 +1086,7 @@ BEC_database <- read_excel(paste(Key,"Data/BEC database.xlsx",sep = "" ))
 
 #source(paste(Key,"Code/1. Network_algorithm_11.05.26_updated.R",sep = "" ))
 
-network <- readRDS(paste(Key,"Output/PN_links_8703Final_version.rds",sep = "" ))
+network <- gnetwork_new
 
 # Trade
 years <- 2002:2022
@@ -1115,7 +1108,7 @@ product_i <- aipnet %>%
 focal_countries <- c("China", "Japan", "Morocco", "South Africa")
 
 # Turn names into character
-V(network)$name <- as.character(V(network)$name)
+network <- gnetwork_new
 
 # Invert Upstream2 to get Downstream2: nodes far upstream get high values,
 # nodes close to the root (final product) get low values.
