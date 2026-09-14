@@ -40,54 +40,21 @@
 #   Exported as a multi-sheet Excel workbook at the end.
 # =============================================================================
 
-rm(list = ls())
 start.time <- Sys.time() 
 
 
 # ==============================================================================
 # PACKAGE SETUP
-# ------------------------------------------------------------------------------
-# PURPOSE
-#   Instead of assuming every package is already installed (which breaks
-#   for your coworker the first time they run this on a fresh machine),
-#   this block checks EACH package individually:
-#     - if it's already installed  -> just load it
-#     - if it's missing            -> install it, THEN load it
-#
-#   This means the script is "self-healing": anyone who clones the repo
-#   and runs it can do so without manually running install.packages() for
-#   13 different packages beforehand.
 # ==============================================================================
 
-# STEP 1: List every package your scripts depend on, in one place.
-# This is now the single list to edit if you ever add/remove a dependency
-# -- you don't need to touch the loading logic below at all.
+# STEP 1: Package
 required_packages <- c("dplyr",
-  "stringr",
   "igraph",
   "purrr",
-  "tidyr",
   "tibble",
   "readxl",
-  "visNetwork",
-  "htmltools",
-  "tidyverse",
-  "readr",
-  "patchwork",
-  "openxlsx",
-  "RColorBrewer",
-  "writexl",
-  "here",
-  "ggplot2",
-  "reshape2")
+  "openxlsx")
 
-
-
-# STEP 2: Loop through the list and install anything that's missing.
-# requireNamespace(pkg, quietly = TRUE) returns TRUE if the package is
-# already installed (without loading it or printing anything), and FALSE
-# if it isn't. We only call install.packages() for the ones that come
-# back FALSE, so already-installed packages are left untouched.
 for (pkg in required_packages) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     message("Installing missing package: ", pkg)
@@ -95,76 +62,51 @@ for (pkg in required_packages) {
   }
 }
 
-
-
-# Packages
 suppressPackageStartupMessages({
   library(dplyr)
-  library(readr)
-  library(patchwork)
   library(openxlsx)
-  library(ggplot2)
-  library(tidyverse)
-  library(stringr)
   library(igraph)
   library(purrr)
-  library(tidyr)
   library(tibble)
   library(readxl)
   library(purrr)
-  library(visNetwork)
-  library(htmltools)
-  library(reshape2)
-  library(RColorBrewer)
-  library(writexl)
-  library(here)
 })
 
 
-# STEP 3: Now that every package is guaranteed to be installed, load them
-# all with library(), same as your original code. We keep this inside
-# suppressPackageStartupMessages() so you don't get the usual wall of
-# "Attaching package: 'dplyr'" / "The following objects are masked..."
-# text in the console every time you source the script.
-#
-# Note: library() calls still need to be written out individually here
-# (library() can't easily take a variable name the way install.packages()
-# can) -- but this is a one-time list, so it's fine to keep it explicit.
 
+# =============================================================================
+# SECTION 0 — Input list
+# =============================================================================
 
 # ── Product identifier ─────────────────────────────────────────────────────────
 product4d <- "8712"
 
-# Product label lookup - for heatmap
-product_labels <- c(
-  "8712" = "bicycle",
-  "8501" = "electric motor and generator",
-  "8418" = "refrigerator",
-  "8502" = "wind turbine",
-  "8703" = "motor vehicles"
-)
-
-product_name <- product_labels[product4d]
+# ── Aggregation level ─────────────────────────────────────────────────────────────
+Agreg_level <-4
 
 # ── Paths & product selection ──────────────────────────────────────────────────
 Key <- "C:/Users/arnau/OneDrive/Documents/GitHub/Product-network/"
 #Key <- "C:/Users/ar86/OneDrive - SOAS University of London/Research collab. AP-AR/"
-
-graphs_dir <- paste(Key,"Graphs",sep = "" )
 
 # ── Raw data loads ─────────────────────────────────────────────────────────────
 graphh       <- read_excel(paste0(Key, "Code/edge_list_hs2002_4digit.xlsx"))
 hsnames      <- read_excel(paste0(Key, "Code/HSCodeandDescription.xlsx"), sheet = "HS02")
 BEC_database <- read_excel(paste0(Key, "Data/BEC database.xlsx"))
 
+PN_networkmodel<-function(product4d,Agreg_level,graphh,hsnames,BEC_database){
+
+# Restrict hsnames to 4-digit level only
+hsnames <- hsnames[hsnames$Level == Agreg_level, ]
+
 # ── Capital-goods exclusion list ───────────────────────────────────────────────
 # Keep only BEC "CAP" goods, then remove the target product itself from the list
 # so we never accidentally exclude it during cleaning.
 Capital_good <- BEC_database$HS6[BEC_database$BEC5EndUse == "CAP"]
-Capital_good <- Capital_good[product4d != substr(Capital_good, 1, 4)]
+Capital_good <- Capital_good[product4d != substr(Capital_good, 1, Agreg_level)]
 
-# Restrict hsnames to 4-digit level only
-hsnames <- hsnames[hsnames$Level == 4, ]
+
+
+
 
 # =============================================================================
 # SECTION 1 — Data-cleaning helpers   (UNCHANGED)
@@ -217,8 +159,6 @@ Full_net             <- Hidden_net
 
 Fish_network       <- cbind.data.frame("id" = seq_len(nrow(Full_net)), Full_net)
 colnames(Full_net) <- c("Source", "Target")
-
-#write.xlsx(Full_net, file = paste0(Key, "Data/Full_network", product4d, ".xlsx"))
 
 # =============================================================================
 # SECTION 3 — Upstreamness scoring  (UNCHANGED)
@@ -753,16 +693,10 @@ for (col in setdiff(names(hsnames), "id")) {
 # SECTION 13 — Export
 # =============================================================================
 
-# ── Main network outputs ───────────────────────────────────────────────────────
-write.xlsx(as.matrix(get.adjacency(gnetwork_new)),
-           rowNames = TRUE,
-           file = paste0(Key, "Code/gnetwork_filtered", product4d, ".xlsx"))
+
 
 vertex_df <- as.data.frame(vertex_attr(gnetwork_new))
 vdf       <- cbind.data.frame(id = vertex_df$name, vertex_df)
-
-write.xlsx(vdf, rowNames = FALSE,
-           file = paste0(Key, "Output/Vertex_Data", product4d, ".xlsx"))
 
 # ── Rewiring log: one sheet per iteration ─────────────────────────────────────
 # Each sheet: from, from_description, to, to_description, rewired_to_root
@@ -782,11 +716,36 @@ for (pass_name in names(rewiring_log_by_iteration)) {
   }
 }
 
+
+
 saveWorkbook(rewiring_wb, overwrite = TRUE,
              file = paste0(Key, "Output/Rewiring_log_by_iteration_",
                            product4d, ".xlsx"))
 
+
+# gnetwork_new is the final object used by all downstream scripts
+
+
+
+return(list(network = gnetwork_new, vertex_data = vdf))
+
+}
+
+result <- PN_networkmodel(product4d, Agreg_level, graphh, hsnames, BEC_database)
+
+
+
+write.xlsx(result$vertex_data, rowNames = FALSE,
+           file = paste0(Key, "Output/Vertex_Data", product4d, ".xlsx"))
+
+saveRDS(result$network, paste0(Key, "Output/PN_links_", product4d, "Final_version.rds"))
 cat("\n=== Script complete. All outputs saved. ===\n")
+
+# ── Main network outputs ───────────────────────────────────────────────────────
+write.xlsx(as.matrix(get.adjacency(result$network)),
+           rowNames = TRUE,
+           file = paste0(Key, "Code/gnetwork_filtered", product4d, ".xlsx"))
+
 
 
 end.time <- Sys.time()
@@ -801,6 +760,80 @@ time.taken
 ###################################################################################################
 ###################################################################################################
 
+# STEP 1: List every package your scripts depend on, in one place.
+# This is now the single list to edit if you ever add/remove a dependency
+# -- you don't need to touch the loading logic below at all.
+required_packages <- c("dplyr",
+                       "stringr",
+                       "igraph",
+                       "purrr",
+                       "tidyr",
+                       "tibble",
+                       "readxl",
+                       "visNetwork",
+                       "htmltools",
+                       "tidyverse",
+                       "readr",
+                       "patchwork",
+                       "openxlsx",
+                       "RColorBrewer",
+                       "writexl",
+                       "here",
+                       "ggplot2",
+                       "reshape2")
+
+
+
+# STEP 2: Loop through the list and install anything that's missing.
+# requireNamespace(pkg, quietly = TRUE) returns TRUE if the package is
+# already installed (without loading it or printing anything), and FALSE
+# if it isn't. We only call install.packages() for the ones that come
+# back FALSE, so already-installed packages are left untouched.
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    message("Installing missing package: ", pkg)
+    install.packages(pkg)
+  }
+}
+
+
+
+# Packages
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(readr)
+  library(patchwork)
+  library(openxlsx)
+  library(ggplot2)
+  library(tidyverse)
+  library(stringr)
+  library(igraph)
+  library(purrr)
+  library(tidyr)
+  library(tibble)
+  library(readxl)
+  library(purrr)
+  library(visNetwork)
+  library(htmltools)
+  library(reshape2)
+  library(RColorBrewer)
+  library(writexl)
+  library(here)
+})
+
+
+
+# Product label lookup - for heatmap
+product_labels <- c(
+  "8712" = "bicycle",
+  "8501" = "electric motor and generator",
+  "8418" = "refrigerator",
+  "8502" = "wind turbine",
+  "8703" = "motor vehicles"
+)
+
+#product_name <- product_labels[product4d]
+product_name <- "bicycle"
 
 
 
@@ -1069,8 +1102,7 @@ p_aipnet | p_hin
 Key
 # Paths
 
-
-
+graphs_dir <- paste(Key,"Graphs",sep = "" )
 
 out_dir <- paste(Key,"Output",sep = "")
 data_dir <- here("Data", "BACI_HS02_V202501")
