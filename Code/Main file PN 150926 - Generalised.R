@@ -42,18 +42,18 @@
 
 start.time <- Sys.time() 
 
-# ── Paramètres généraux ─────────────────────────────────────────────
-Agreg_level <- 4        # niveau d'agrégation HS (4 ou 6 chiffres)
-HS_version  <- "HS02"   # version de la nomenclature HS
-product4d <- "8712"
+# ── General parameters ─────────────────────────────────────────────
 
-
-
+Local_path <- "C:/Users/arnau/OneDrive/Documents/GitHub/Product-network/" # write the code leading to the local github file
+product4d <- "871200"                                                     # write the product code at the  4 ou 6 digit code
+HS_version  <- "HS02"                                                     # version of the HS nomenclature
 
 
 # =============================================================================
-# SECTION 0 — Input list
+# SECTION 0 — Preparation of the data
 # =============================================================================
+
+Agreg_level <- nchar(product4d)       
 
 # STEP 1: Package
 suppressPackageStartupMessages({
@@ -61,7 +61,7 @@ suppressPackageStartupMessages({
   library(readxl)
 })
 
-file_path <- "C:/Users/arnau/Downloads/AIPNET_Data_Pack_20241204.xlsx"
+file_path <- paste0(Local_path, "Data/AIPNET/AIPNET_Data_Pack_20241204.xlsx")
 all_sheets <- excel_sheets(file_path)
 
 # ── Exclusion explicite des onglets qui ne sont pas des tables de données ──
@@ -86,7 +86,7 @@ hs_match <- sapply(data_sheets, function(s) {
 sheet_lookup <- setNames(data_sheets, paste0(digit_match, "_", hs_match))
 
 # Vérification
-if (any(duplicated(names(sheet_lookup)))) {  warning("Clés en double détectées") }
+if (any(duplicated(names(sheet_lookup)))) { warning("Clés en double détectées") }
 
 # ── Sélection et vérification de l'onglet ────────────────────────────
 lookup_key   <- paste0(Agreg_level, "_", HS_version)
@@ -97,7 +97,6 @@ if (is.na(aipnet_sheet)) {
 }
 
 # ── Chargement des données ───────────────────────────────────────────
-Local_path <- "C:/Users/arnau/OneDrive/Documents/GitHub/Product-network/"
 #Local_path <- "C:/Users/ar86/OneDrive - SOAS University of London/Research collab. AP-AR/"
 AIPNET_Data_Pack_20241204 <- read_excel(file_path, sheet = aipnet_sheet)
 hsnames <- read_excel(paste0(Local_path, "Code/HSCodeandDescription.xlsx"),  sheet = HS_version)
@@ -143,39 +142,36 @@ hsnames <- hsnames[hsnames$Level == Agreg_level, ]
 Capital_good <- BEC_database$HS6[BEC_database$BEC5EndUse == "CAP"]
 Capital_good <- Capital_good[product_code != substr(Capital_good, 1, Agreg_level)]
 
-
-
-clean_edges <- function(graphh) {
-
 # =============================================================================
 # SECTION 1 — Data-cleaning helpers   (UNCHANGED)
 # =============================================================================
 
+clean_edges <- function(graphh) {
   
-  
-  
-  
-  # Coerce both edge columns to character, then left-pad 3-digit codes with "0"
-  # so that e.g. "840" becomes "0840" and matches 4-digit HS codes consistently.
+  # Coerce both edge columns to character, then left-pad codes that are one
+  # character short of Agreg_level with "0" — e.g. with Agreg_level = 4,
+  # "840" becomes "0840"; with Agreg_level = 6, a 5-character code gets padded too.
   graphh <- graphh %>%
     mutate(
       hs2002_code_upstream   = as.character(hs2002_code_upstream),
       hs2002_code_downstream = as.character(hs2002_code_downstream)
     )
-  pad3 <- function(x) ifelse(nchar(x) == 3, paste0("0", x), x)
+  pad_code <- function(x, target_length) {
+    ifelse(nchar(x) == target_length - 1, paste0("0", x), x)
+  }
   graphh %>%
     mutate(
-      hs2002_code_upstream   = pad3(hs2002_code_upstream),
-      hs2002_code_downstream = pad3(hs2002_code_downstream)
+      hs2002_code_upstream   = pad_code(hs2002_code_upstream, Agreg_level),
+      hs2002_code_downstream = pad_code(hs2002_code_downstream, Agreg_level)
     )
 }
 
 # Apply cleaning, then drop all edges where either endpoint is a capital good
 graphh_clean <- clean_edges(AIPNET_data)
 graphh_clean <- graphh_clean[
-  !graphh_clean$hs2002_code_upstream   %in% unique(substr(Capital_good, 1, 4)), ]
+  !graphh_clean$hs2002_code_upstream   %in% unique(substr(Capital_good, 1, Agreg_level)), ]
 graphh_clean <- graphh_clean[
-  !graphh_clean$hs2002_code_downstream %in% unique(substr(Capital_good, 1, 4)), ]
+  !graphh_clean$hs2002_code_downstream %in% unique(substr(Capital_good, 1, Agreg_level)), ]
 
 # =============================================================================
 # SECTION 2 — Identify all direct inputs of the target product  (UNCHANGED)
@@ -766,12 +762,15 @@ return(list(network = gnetwork_new, vertex_data = vdf, rewiring_log = rewiring_w
 
 }
 
+
 # =============================================================================
 # SECTION APPLICATION
 # =============================================================================
 
 
 result <- PN_networkmodel(product4d, Agreg_level, AIPNET_Data_Pack_20241204, hsnames, BEC_database, Local_path = Local_path)
+
+result$vertex_data
 
 write.xlsx(result$vertex_data, rowNames = FALSE,
            file = paste0(Local_path, "Output/Vertex_Data", product_code, ".xlsx"))
