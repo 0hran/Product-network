@@ -43,33 +43,13 @@
 start.time <- Sys.time() 
 
 
-# ==============================================================================
-# PACKAGE SETUP
-# ==============================================================================
+
 
 # STEP 1: Package
-required_packages <- c("dplyr",
-  "igraph",
-  "purrr",
-  "tibble",
-  "readxl",
-  "openxlsx")
-
-for (pkg in required_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    message("Installing missing package: ", pkg)
-    install.packages(pkg)
-  }
-}
 
 suppressPackageStartupMessages({
-  library(dplyr)
   library(openxlsx)
-  library(igraph)
-  library(purrr)
-  library(tibble)
   library(readxl)
-  library(purrr)
 })
 
 
@@ -85,16 +65,49 @@ product4d <- "8712"
 Agreg_level <-4
 
 # ── Paths & product selection ──────────────────────────────────────────────────
-Key <- "C:/Users/arnau/OneDrive/Documents/GitHub/Product-network/"
-#Key <- "C:/Users/ar86/OneDrive - SOAS University of London/Research collab. AP-AR/"
+Local_path <- "C:/Users/arnau/OneDrive/Documents/GitHub/Product-network/"
+#Local_path <- "C:/Users/ar86/OneDrive - SOAS University of London/Research collab. AP-AR/"
 
 # ── Raw data loads ─────────────────────────────────────────────────────────────
-graphh       <- read_excel(paste0(Key, "Code/edge_list_hs2002_4digit.xlsx"))
-hsnames      <- read_excel(paste0(Key, "Code/HSCodeandDescription.xlsx"), sheet = "HS02")
-BEC_database <- read_excel(paste0(Key, "Data/BEC database.xlsx"))
+graphh       <- read_excel(paste0(Local_path, "Code/edge_list_hs2002_4digit.xlsx"))
+hsnames      <- read_excel(paste0(Local_path, "Code/HSCodeandDescription.xlsx"), sheet = "HS02")
+BEC_database <- read_excel(paste0(Local_path, "Data/BEC database.xlsx"))
 
-PN_networkmodel<-function(product4d,Agreg_level,graphh,hsnames,BEC_database){
 
+
+
+
+PN_networkmodel<-function(product4d,Agreg_level,graphh,hsnames,BEC_database, Local_path){
+  
+  # ==============================================================================
+  # PACKAGE SETUP
+  # ==============================================================================  
+  
+  # STEP 1: Package
+  required_packages <- c("dplyr",
+                         "igraph",
+                         "purrr",
+                         "tibble",
+                         "readxl",
+                         "openxlsx")
+  
+  for (pkg in required_packages) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      install.packages(pkg)
+    }
+  }
+  
+  suppressPackageStartupMessages({
+    library(dplyr)
+    library(openxlsx)
+    library(igraph)
+    library(purrr)
+    library(tibble)
+    library(readxl)
+  })
+  
+  
 # Restrict hsnames to 4-digit level only
 hsnames <- hsnames[hsnames$Level == Agreg_level, ]
 
@@ -106,12 +119,16 @@ Capital_good <- Capital_good[product4d != substr(Capital_good, 1, Agreg_level)]
 
 
 
-
+clean_edges <- function(graphh) {
 
 # =============================================================================
 # SECTION 1 — Data-cleaning helpers   (UNCHANGED)
 # =============================================================================
-clean_edges <- function(graphh) {
+
+  
+  
+  
+  
   # Coerce both edge columns to character, then left-pad 3-digit codes with "0"
   # so that e.g. "840" becomes "0840" and matches 4-digit HS codes consistently.
   graphh <- graphh %>%
@@ -694,7 +711,6 @@ for (col in setdiff(names(hsnames), "id")) {
 # =============================================================================
 
 
-
 vertex_df <- as.data.frame(vertex_attr(gnetwork_new))
 vdf       <- cbind.data.frame(id = vertex_df$name, vertex_df)
 
@@ -717,40 +733,71 @@ for (pass_name in names(rewiring_log_by_iteration)) {
 }
 
 
-
-saveWorkbook(rewiring_wb, overwrite = TRUE,
-             file = paste0(Key, "Output/Rewiring_log_by_iteration_",
-                           product4d, ".xlsx"))
-
-
 # gnetwork_new is the final object used by all downstream scripts
 
-
-
-return(list(network = gnetwork_new, vertex_data = vdf))
+return(list(network = gnetwork_new, vertex_data = vdf, rewiring_log = rewiring_wb, FN = Fish_network, EF = edges_full))
 
 }
 
-result <- PN_networkmodel(product4d, Agreg_level, graphh, hsnames, BEC_database)
 
 
 
+
+result <- PN_networkmodel(product4d, Agreg_level, graphh, hsnames, BEC_database, Local_path = Local_path)
 write.xlsx(result$vertex_data, rowNames = FALSE,
-           file = paste0(Key, "Output/Vertex_Data", product4d, ".xlsx"))
+           file = paste0(Local_path, "Output/Vertex_Data", product4d, ".xlsx"))
 
-saveRDS(result$network, paste0(Key, "Output/PN_links_", product4d, "Final_version.rds"))
+saveRDS(result$network, paste0(Local_path, "Output/PN_links_", product4d, "Final_version.rds"))
 cat("\n=== Script complete. All outputs saved. ===\n")
 
 # ── Main network outputs ───────────────────────────────────────────────────────
 write.xlsx(as.matrix(get.adjacency(result$network)),
            rowNames = TRUE,
-           file = paste0(Key, "Code/gnetwork_filtered", product4d, ".xlsx"))
+           file = paste0(Local_path, "Code/gnetwork_filtered", product4d, ".xlsx"))
 
-
+saveWorkbook(result$rewiring_log, overwrite = TRUE,
+             file = paste0(Local_path, "Output/Rewiring_log_by_iteration_",
+                           product4d, ".xlsx"))
 
 end.time <- Sys.time()
 time.taken <- end.time - start.time
 time.taken
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -836,10 +883,9 @@ product_labels <- c(
 product_name <- "bicycle"
 
 
-
-
-
+Fish_network<-result$FN
 Fish_network$id<-NULL
+edges_full<-result$EF
 
 Hidden_network<-graph_from_edgelist(as.matrix(Fish_network),directed = T)
 head(Fish_network)
@@ -1099,12 +1145,12 @@ p_aipnet | p_hin
 # =============================================================================
 # FULL SCRIPT: LPN Network code2
 # =============================================================================
-Key
+Local_path
 # Paths
 
-graphs_dir <- paste(Key,"Graphs",sep = "" )
+graphs_dir <- paste(Local_path,"Graphs",sep = "" )
 
-out_dir <- paste(Key,"Output",sep = "")
+out_dir <- paste(Local_path,"Output",sep = "")
 data_dir <- here("Data", "BACI_HS02_V202501")
 graphs_dir <- here("Graphs")
 
@@ -1112,11 +1158,11 @@ graphs_dir <- here("Graphs")
 
 
 # Load data
-aipnet <- read_excel(paste(Key,"Code/edge_list_hs2002_4digit.xlsx",sep = ""))
-hsnames <- read_excel(paste(Key,"Code/HSCodeandDescription.xlsx",sep = "" ), sheet = "HS02")
-BEC_database <- read_excel(paste(Key,"Data/BEC database.xlsx",sep = "" ))
+aipnet <- read_excel(paste(Local_path,"Code/edge_list_hs2002_4digit.xlsx",sep = ""))
+hsnames <- read_excel(paste(Local_path,"Code/HSCodeandDescription.xlsx",sep = "" ), sheet = "HS02")
+BEC_database <- read_excel(paste(Local_path,"Data/BEC database.xlsx",sep = "" ))
 
-#source(paste(Key,"Code/1. Network_algorithm_11.05.26_updated.R",sep = "" ))
+#source(paste(Local_path,"Code/1. Network_algorithm_11.05.26_updated.R",sep = "" ))
 
 network <- gnetwork_new
 
