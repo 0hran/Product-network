@@ -770,7 +770,13 @@ return(list(network = gnetwork_new, vertex_data = vdf, rewiring_log = rewiring_w
 
 result <- PN_networkmodel(product4d, Agreg_level, AIPNET_Data_Pack_20241204, hsnames, BEC_database, Local_path = Local_path)
 
-result$vertex_data
+
+
+# =============================================================================
+# SECTION Saving file
+# =============================================================================
+
+
 
 write.xlsx(result$vertex_data, rowNames = FALSE,
            file = paste0(Local_path, "Output/Vertex_Data", product_code, ".xlsx"))
