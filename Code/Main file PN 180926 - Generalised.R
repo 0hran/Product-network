@@ -103,8 +103,7 @@ if (is.na(aipnet_sheet)) {
 #Local_path <- "C:/Users/ar86/OneDrive - SOAS University of London/Research collab. AP-AR/"
 AIPNET_Data_Pack_20241204 <- read_excel(file_path, sheet = aipnet_sheet)
 hsnames <- read_excel(paste0(Local_path, "Code/HSCodeandDescription.xlsx"),  sheet = HS_version)
-BEC_database <- read_excel(paste0(Local_path, "Data/BEC database.xlsx"))
-
+BEC_database <- read_excel(paste0(Local_path, "Data/HS2012-17-BEC5 -- 08 Nov 2018.xlsx"))
 
 # Restrict hsnames to 4-digit level only
 hsnames <- hsnames[hsnames$Level == Agreg_level, ]
